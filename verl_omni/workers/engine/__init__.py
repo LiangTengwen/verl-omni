@@ -27,7 +27,10 @@ except ImportError:
 try:
     from .mindspeed import OmniMindSpeedMegatronEngine  # noqa: F401
     from .mindspeed import OmniMindspeedMegatronBridgeEngine  # noqa: F401
-except ImportError:
+except ImportError as e:
+    import logging
+    logging.warning("Failed to import OmniMindSpeed engines: %s", e)
+    print(f"Failed to import OmniMindSpeed engines ",flush =True)
     OmniMindSpeedMegatronEngine = None
     OmniMindspeedMegatronBridgeEngine = None
 
