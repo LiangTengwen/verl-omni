@@ -260,15 +260,27 @@ class OmniMindSpeedMegatronEngine(MindSpeedMegatronEngineWithLMHead):
 
 
 def _patch_torch_cuda_for_npu():
-    """Redirect ``torch.cuda`` → ``torch.npu`` on NPU devices.
+    """Patch specific ``torch.cuda`` functions that fail on NPU with NPU equivalents.
 
     Megatron-Core's ``set_random_seed`` calls ``torch.cuda.get_rng_state()``,
     which raises ``AssertionError: Torch not compiled with CUDA enabled`` on
-    NPU.  This redirect fixes that before the parent ``__init__`` runs.
+    NPU.  Instead of replacing the entire ``torch.cuda`` module (which would
+    break type annotations like ``torch.cuda.ExternalStream``), we patch only
+    the functions that are actually called at runtime.
+
+    Returns ``True`` if the patch was applied, ``False`` otherwise.
     """
     if not torch.cuda.is_available() and hasattr(torch, "npu") and torch.npu.is_available():
-        logger.info("Redirecting torch.cuda → torch.npu for NPU compatibility (set_random_seed)")
-        torch.cuda = torch.npu
+        logger.info("Patching torch.cuda runtime functions → torch.npu for NPU compatibility")
+        torch.cuda.get_rng_state = torch.npu.get_rng_state
+        torch.cuda.set_rng_state = torch.npu.set_rng_state
+        torch.cuda.manual_seed = torch.npu.manual_seed
+        torch.cuda.manual_seed_all = torch.npu.manual_seed_all
+        torch.cuda.current_device = torch.npu.current_device
+        torch.cuda.device_count = torch.npu.device_count
+        torch.cuda.synchronize = torch.npu.synchronize
+        return True
+    return False
 
 
 @EngineRegistry.register(model_type="omni_model", backend=["megatron"], device=["npu"])
