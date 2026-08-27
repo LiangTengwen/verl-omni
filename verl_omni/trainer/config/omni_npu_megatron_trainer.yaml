@@ -1,0 +1,120 @@
+# Format checks enforced on CI:
+# 1. Comments must appear above each field.
+# 2. There must be a blank line between each field.
+# 3. Inline comments (after a field on the same line) are not allowed.
+# 4. Indentation level is respected for nested fields.
+
+hydra:
+  searchpath:
+    - pkg://verl.trainer.config
+
+defaults:
+  - ppo_megatron_trainer
+  - omni/model@actor_rollout_ref.model: omni_model
+  - _self_
+
+# Config for actor, rollout and reference model.
+actor_rollout_ref:
+
+  # Share GPUs between training and rollout (8-GPU setup).
+  hybrid_engine: true
+
+  # Model config.
+  model:
+
+    # Dispatch to OmniMindspeedMegatronBridgeEngine via omni_model + megatron backend.
+    model_type: omni_model
+
+  # Rollout config.
+  rollout:
+
+    # Use vLLM-Omni as the rollout backend for omni models.
+    name: vllm_omni
+
+    # Use the asynchronous server rollout path.
+    mode: async
+
+    # A standalone vLLM-Omni server owns one data-parallel replica.
+    data_parallel_size: 1
+
+    # Calculate token log probabilities during rollout.
+    calculate_log_probs: true
+
+    # Checkpoint engine configuration.
+    checkpoint_engine:
+
+      # Use NCCL to synchronize Megatron weights to rollout replicas.
+      backend: nccl
+
+  # Actor config.
+  actor:
+
+    # Use Megatron-Bridge as the actor backend.
+    strategy: megatron
+
+    # Megatron-Bridge configuration (vanilla_mbridge=False, new bridge).
+    megatron:
+      use_mbridge: true
+      vanilla_mbridge: false
+
+      # Megatron parallelism.
+      tensor_model_parallel_size: 4
+      pipeline_model_parallel_size: 2
+
+      # Memory optimization.
+      param_offload: true
+      optimizer_offload: true
+      grad_offload: true
+
+      # NPU-specific overrides for MindSpeed CANN operator replacement.
+      override_transformer_config:
+        use_flash_attn: true
+        moe_token_dispatcher_type: alltoall
+        use_naive_l2norm: true
+
+  # Reference model config.
+  ref:
+
+    # Use Megatron-Bridge as the reference backend.
+    strategy: megatron
+
+    # Reference model shares the same Megatron config as actor.
+    megatron:
+      tensor_model_parallel_size: 4
+      pipeline_model_parallel_size: 2
+      vanilla_mbridge: false
+      use_mbridge: true
+
+# Trainer configuration.
+trainer:
+
+  # V1 trainer settings.
+  v1:
+
+    # Use the omni sync trainer mode for shared-GPU setup.
+    trainer_mode: omni_sync
+
+
+# Config for the algorithm.
+algorithm:
+
+  # Required when using verl.utils.omega_conf_to_dataclass to instantiate dataclass configs
+  _target_: verl_omni.trainer.config.OmniAlgoConfig
+
+  # Trainer loop.
+  trainer_type: policy_gradient
+
+  # Sample provenance.
+  sample_source: online
+
+  # True for pair-based algorithms such as offline DPO.
+  paired_preference: false
+
+  # Advantage estimator placeholder inherited by shared trainer utilities.
+  adv_estimator: grpo
+
+  # Whether to normalize advantages by std.
+  norm_adv_by_std_in_grpo: true
+
+  # Whether to normalize advantages using global standard deviation.
+  global_std: true

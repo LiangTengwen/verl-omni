@@ -34,6 +34,7 @@ NNODES=${VC_WORKER_NUM:-1}
 ROLLOUT_TP=${ROLLOUT_TP:-4}
 
 python3 -m verl_omni.trainer.main_omni \
+    --config-name='omni_npu_megatron_trainer' \
     data.train_files="${TRAIN_FILE}" \
     data.val_files="${VAL_FILE}" \
     data.train_batch_size=64 \
@@ -55,14 +56,12 @@ python3 -m verl_omni.trainer.main_omni \
     actor_rollout_ref.model.enable_activation_offload=true \
     actor_rollout_ref.model.enable_gradient_checkpointing=true \
     actor_rollout_ref.model.use_remove_padding=true \
-    actor_rollout_ref.model.exclude_modules=".*talker.*|.*code2wav.*|.*code_predictor.*|.*visual.*|.*audio_tower.*" \
-    actor_rollout_ref.actor.freeze_vision_tower=true \
-    actor_rollout_ref.actor.strategy=fsdp2 \
+    actor_rollout_ref.actor.strategy=megatron \
     actor_rollout_ref.actor.optim.lr=1e-6 \
     actor_rollout_ref.actor.optim.weight_decay=0.1 \
     actor_rollout_ref.actor.optim.clip_grad=1.0 \
     actor_rollout_ref.actor.ppo_mini_batch_size=4 \
-    actor_rollout_ref.actor.use_dynamic_bsz=true \
+    actor_rollout_ref.actor.use_dynamic_bsz=false \
     actor_rollout_ref.actor.ppo_max_token_len_per_gpu=6144 \
     actor_rollout_ref.actor.entropy_from_logits_with_chunking=true \
     actor_rollout_ref.actor.entropy_from_logits_chunk_size=1024 \
@@ -72,13 +71,18 @@ python3 -m verl_omni.trainer.main_omni \
     actor_rollout_ref.actor.clip_ratio_high=4e-4 \
     actor_rollout_ref.actor.clip_ratio_c=10.0 \
     actor_rollout_ref.actor.loss_agg_mode=seq-mean-token-mean \
-    actor_rollout_ref.actor.fsdp_config.param_offload=true \
-    actor_rollout_ref.actor.fsdp_config.optimizer_offload=true \
-    actor_rollout_ref.actor.fsdp_config.model_dtype=bfloat16 \
-    actor_rollout_ref.actor.fsdp_config.use_orig_params=true \
-    actor_rollout_ref.actor.fsdp_config.use_torch_compile=False \
-    actor_rollout_ref.actor.fsdp_config.offload_policy=true \
-    actor_rollout_ref.actor.fsdp_config.reshard_after_forward=true \
+    # Megatron-Bridge configuration (vanilla_mbridge=False, new bridge).
+    actor_rollout_ref.actor.megatron.vanilla_mbridge=False \
+    actor_rollout_ref.actor.megatron.use_mbridge=True \
+    actor_rollout_ref.actor.megatron.tensor_model_parallel_size=${train_tp} \
+    actor_rollout_ref.actor.megatron.pipeline_model_parallel_size=${train_pp} \
+    actor_rollout_ref.actor.megatron.param_offload=True \
+    actor_rollout_ref.actor.megatron.optimizer_offload=True \
+    actor_rollout_ref.actor.megatron.grad_offload=True \
+    # NPU-specific overrides for MindSpeed CANN operator replacement.
+    +actor_rollout_ref.actor.megatron.override_transformer_config.use_flash_attn=True \
+    +actor_rollout_ref.actor.megatron.override_transformer_config.moe_token_dispatcher_type=alltoall \
+    +actor_rollout_ref.actor.megatron.override_transformer_config.use_naive_l2norm=True \
     actor_rollout_ref.actor.ppo_micro_batch_size_per_gpu=1 \
     actor_rollout_ref.rollout.name=vllm_omni \
     actor_rollout_ref.rollout.mode=async \
@@ -95,14 +99,14 @@ python3 -m verl_omni.trainer.main_omni \
     actor_rollout_ref.rollout.agent.num_workers=$((NUM_GPUS_ACTOR_ROLLOUT_REWARD / ROLLOUT_TP)) \
     +actor_rollout_ref.rollout.engine_kwargs.vllm_omni.output_mode=ar \
     +actor_rollout_ref.rollout.engine_kwargs.vllm_omni.pipeline_name=qwen3_omni_moe \
+    # Thinker-only stage config (NPU vLLM-Omni needs explicit stage config).
+    +actor_rollout_ref.rollout.engine_kwargs.vllm_omni.stage_configs_path="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/qwen3_omni_thinker_only_npu.yaml" \
     actor_rollout_ref.rollout.val_kwargs.n=1 \
     actor_rollout_ref.rollout.val_kwargs.temperature=0 \
     actor_rollout_ref.rollout.val_kwargs.top_p=1.0 \
     actor_rollout_ref.rollout.val_kwargs.top_k=-1 \
     actor_rollout_ref.ref.log_prob_use_dynamic_bsz=true \
     actor_rollout_ref.ref.log_prob_max_token_len_per_gpu=6144 \
-    actor_rollout_ref.ref.fsdp_config.param_offload=true \
-    actor_rollout_ref.ref.fsdp_config.model_dtype=bfloat16 \
     algorithm.adv_estimator=grpo \
     algorithm.use_kl_in_reward=false \
     reward.reward_manager.source=register \
