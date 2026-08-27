@@ -56,7 +56,6 @@ python3 -m verl_omni.trainer.main_omni \
     actor_rollout_ref.model.enable_activation_offload=true \
     actor_rollout_ref.model.enable_gradient_checkpointing=true \
     actor_rollout_ref.model.use_remove_padding=true \
-    actor_rollout_ref.actor.strategy=megatron \
     actor_rollout_ref.actor.optim.lr=1e-6 \
     actor_rollout_ref.actor.optim.weight_decay=0.1 \
     actor_rollout_ref.actor.optim.clip_grad=1.0 \
@@ -71,21 +70,7 @@ python3 -m verl_omni.trainer.main_omni \
     actor_rollout_ref.actor.clip_ratio_high=4e-4 \
     actor_rollout_ref.actor.clip_ratio_c=10.0 \
     actor_rollout_ref.actor.loss_agg_mode=seq-mean-token-mean \
-    # Megatron-Bridge configuration (vanilla_mbridge=False, new bridge).
-    actor_rollout_ref.actor.megatron.vanilla_mbridge=False \
-    actor_rollout_ref.actor.megatron.use_mbridge=True \
-    actor_rollout_ref.actor.megatron.tensor_model_parallel_size=${train_tp} \
-    actor_rollout_ref.actor.megatron.pipeline_model_parallel_size=${train_pp} \
-    actor_rollout_ref.actor.megatron.param_offload=True \
-    actor_rollout_ref.actor.megatron.optimizer_offload=True \
-    actor_rollout_ref.actor.megatron.grad_offload=True \
-    # NPU-specific overrides for MindSpeed CANN operator replacement.
-    +actor_rollout_ref.actor.megatron.override_transformer_config.use_flash_attn=True \
-    +actor_rollout_ref.actor.megatron.override_transformer_config.moe_token_dispatcher_type=alltoall \
-    +actor_rollout_ref.actor.megatron.override_transformer_config.use_naive_l2norm=True \
     actor_rollout_ref.actor.ppo_micro_batch_size_per_gpu=1 \
-    actor_rollout_ref.rollout.name=vllm_omni \
-    actor_rollout_ref.rollout.mode=async \
     actor_rollout_ref.rollout.n=8 \
     actor_rollout_ref.rollout.tensor_model_parallel_size=${ROLLOUT_TP} \
     actor_rollout_ref.rollout.gpu_memory_utilization=0.3 \
@@ -99,7 +84,6 @@ python3 -m verl_omni.trainer.main_omni \
     actor_rollout_ref.rollout.agent.num_workers=$((NUM_GPUS_ACTOR_ROLLOUT_REWARD / ROLLOUT_TP)) \
     +actor_rollout_ref.rollout.engine_kwargs.vllm_omni.output_mode=ar \
     +actor_rollout_ref.rollout.engine_kwargs.vllm_omni.pipeline_name=qwen3_omni_moe \
-    # Thinker-only stage config (NPU vLLM-Omni needs explicit stage config).
     +actor_rollout_ref.rollout.engine_kwargs.vllm_omni.stage_configs_path="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/qwen3_omni_thinker_only_npu.yaml" \
     actor_rollout_ref.rollout.val_kwargs.n=1 \
     actor_rollout_ref.rollout.val_kwargs.temperature=0 \
