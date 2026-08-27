@@ -78,7 +78,7 @@ python3 -m verl_omni.trainer.main_omni \
     actor_rollout_ref.rollout.enforce_eager=true \
     actor_rollout_ref.rollout.load_format=safetensors \
     actor_rollout_ref.rollout.prompt_length=3100 \
-    actor_rollout_ref.rollout.log_prob_use_dynamic_bsz=true \
+    actor_rollout_ref.rollout.log_prob_use_dynamic_bsz=false \
     actor_rollout_ref.rollout.log_prob_max_token_len_per_gpu=6144 \
     actor_rollout_ref.rollout.enable_prefix_caching=false \
     actor_rollout_ref.rollout.agent.num_workers=$((NUM_GPUS_ACTOR_ROLLOUT_REWARD / ROLLOUT_TP)) \
@@ -89,7 +89,7 @@ python3 -m verl_omni.trainer.main_omni \
     actor_rollout_ref.rollout.val_kwargs.temperature=0 \
     actor_rollout_ref.rollout.val_kwargs.top_p=1.0 \
     actor_rollout_ref.rollout.val_kwargs.top_k=-1 \
-    actor_rollout_ref.ref.log_prob_use_dynamic_bsz=true \
+    actor_rollout_ref.ref.log_prob_use_dynamic_bsz=false \
     actor_rollout_ref.ref.log_prob_max_token_len_per_gpu=6144 \
     algorithm.adv_estimator=grpo \
     algorithm.use_kl_in_reward=false \

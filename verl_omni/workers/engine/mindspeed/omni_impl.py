@@ -37,8 +37,8 @@ import torch
 
 from safetensors.torch import load_file, save_file
 
+from verl.trainer.config.config import CheckpointConfig
 from verl.workers.config import (
-    CheckpointConfig,
     McoreOptimizerConfig,
     MindSpeedEngineConfig,
 )
