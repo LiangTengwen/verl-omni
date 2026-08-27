@@ -40,6 +40,9 @@ actor_rollout_ref:
     # Calculate token log probabilities during rollout.
     calculate_log_probs: true
 
+    # Log probability micro batch size (per GPU).
+    log_prob_micro_batch_size_per_gpu: 1
+
     # Checkpoint engine configuration.
     checkpoint_engine:
 
