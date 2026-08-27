@@ -12,5 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 from .omni_impl import OmniMindSpeedMegatronEngine  # noqa: F401
+from .omni_impl import OmniMindspeedMegatronBridgeEngine  # noqa: F401
 
-__all__ = ["OmniMindSpeedMegatronEngine"]
+__all__ = ["OmniMindSpeedMegatronEngine", "OmniMindspeedMegatronBridgeEngine"]

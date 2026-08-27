@@ -26,8 +26,10 @@ except ImportError:
 
 try:
     from .mindspeed import OmniMindSpeedMegatronEngine  # noqa: F401
+    from .mindspeed import OmniMindspeedMegatronBridgeEngine  # noqa: F401
 except ImportError:
     OmniMindSpeedMegatronEngine = None
+    OmniMindspeedMegatronBridgeEngine = None
 
 __all__ = [
     "PPODiffusersFSDPEngine",
@@ -37,4 +39,5 @@ __all__ = [
     "VeOmniDiffusionEngine",
     "OmniFSDPEngine",
     "OmniMindSpeedMegatronEngine",
+    "OmniMindspeedMegatronBridgeEngine",
 ]

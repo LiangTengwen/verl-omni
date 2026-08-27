@@ -11,28 +11,20 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""MindSpeed Megatron engine for Qwen3-Omni Thinker model on NPU.
+"""MindSpeed engines for Qwen3-Omni Thinker model on NPU.
 
-Registered as ``model_type="omni_model", backend=["mindspeed_megatron"], device=["npu"]``.
+Two engines are provided:
 
-This engine enables NPU (Ascend) Megatron training for Qwen3-Omni Thinker by:
+1. **OmniMindSpeedMegatronEngine** (``vanilla_mbridge=True``, legacy):
+   Registered as ``model_type="omni_model", backend=["mindspeed_megatron"], device=["npu"]``.
+   Uses the old mbridge path. Requires manual ``hf_config`` swapping and
+   thinker weight extraction. See docstring for details.
 
-1. **Bridge compatibility** (``_build_tf_config``):
-   The old mbridge (``vanilla_mbridge=True``) does not recognize
-   ``Qwen3OmniMoeForConditionalGeneration``. We temporarily replace
-   ``hf_config`` with ``thinker_config`` and set ``architectures`` to
-   ``["Qwen3MoeForCausalLM"]`` so the bridge treats the model as a standard
-   Qwen3-MoE.
-
-2. **Weight extraction** (``_build_megatron_module``):
-   The Omni checkpoint stores thinker weights under the ``thinker.`` prefix
-   (e.g. ``thinker.layers.0.self_attn.qkv_proj.weight``). We extract only
-   the thinker weights, strip the prefix, and load from a temporary directory.
-
-3. **MindSpeed patch** (``_init_device_mesh``):
-   ``apply_patch()`` needs to read model architecture parameters from
-   ``hf_config``. We temporarily use ``thinker_config`` so that MindSpeed
-   correctly replaces CUDA operators with CANN operators.
+2. **OmniMindspeedMegatronBridgeEngine** (``vanilla_mbridge=False``, recommended):
+   Registered as ``model_type="omni_model", backend=["megatron"], device=["npu"]``.
+   Uses the new Megatron-Bridge path, which natively supports Qwen3-Omni
+   architecture detection. No ``hf_config`` swapping or weight extraction
+   needed.
 """
 
 import json
@@ -54,6 +46,7 @@ from verl.workers.engine.base import EngineRegistry
 from verl.workers.engine.megatron.transformer_impl import MegatronEngine
 from verl.workers.engine.mindspeed.transformer_impl import (
     MindSpeedMegatronEngineWithLMHead,
+    MindspeedEngineWithLMHead,
 )
 from verl.workers.engine.mindspeed.utils import apply_patch
 
@@ -261,3 +254,37 @@ class OmniMindSpeedMegatronEngine(MindSpeedMegatronEngineWithLMHead):
             json.dump(dst_config, f, indent=2)
 
         logger.info("Prepared config.json at %s", dst_config_path)
+
+
+# ------------------------------------------------------------------
+# OmniMindspeedMegatronBridgeEngine: 新 Megatron-Bridge 路径（推荐）
+# ------------------------------------------------------------------
+
+@EngineRegistry.register(model_type="omni_model", backend=["megatron"], device=["npu"])
+class OmniMindspeedMegatronBridgeEngine(MindspeedEngineWithLMHead):
+    """MindSpeed Megatron-Bridge engine for Qwen3-Omni Thinker on NPU.
+
+    Uses the new Megatron-Bridge (``vanilla_mbridge=False``) which natively
+    supports Qwen3-Omni architecture detection via
+    ``AutoBridge.from_hf_pretrained()``.  No ``hf_config`` swapping or
+    thinker weight extraction needed.
+
+    Restriction
+    -----------
+    ``vanilla_mbridge`` must be ``False``.
+    """
+
+    def __init__(
+        self,
+        model_config: OmniModelConfig,
+        engine_config: MindSpeedEngineConfig,
+        optimizer_config: McoreOptimizerConfig,
+        checkpoint_config: CheckpointConfig,
+    ):
+        if engine_config.vanilla_mbridge:
+            raise ValueError(
+                "OmniMindspeedMegatronBridgeEngine requires vanilla_mbridge=False "
+                "(new Megatron-Bridge). Use OmniMindSpeedMegatronEngine for "
+                "vanilla_mbridge=True (old mbridge)."
+            )
+        super().__init__(model_config, engine_config, optimizer_config, checkpoint_config)
