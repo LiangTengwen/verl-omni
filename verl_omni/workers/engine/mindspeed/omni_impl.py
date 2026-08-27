@@ -48,8 +48,6 @@ from verl.workers.engine.mindspeed.transformer_impl import (
     MindSpeedMegatronEngineWithLMHead,
     MindspeedEngineWithLMHead,
 )
-from verl.workers.engine.mindspeed.utils import apply_patch
-
 from verl_omni.workers.config import OmniModelConfig
 
 logger = logging.getLogger(__name__)
@@ -260,6 +258,19 @@ class OmniMindSpeedMegatronEngine(MindSpeedMegatronEngineWithLMHead):
 # OmniMindspeedMegatronBridgeEngine: 新 Megatron-Bridge 路径（推荐）
 # ------------------------------------------------------------------
 
+
+def _patch_torch_cuda_for_npu():
+    """Redirect ``torch.cuda`` → ``torch.npu`` on NPU devices.
+
+    Megatron-Core's ``set_random_seed`` calls ``torch.cuda.get_rng_state()``,
+    which raises ``AssertionError: Torch not compiled with CUDA enabled`` on
+    NPU.  This redirect fixes that before the parent ``__init__`` runs.
+    """
+    if not torch.cuda.is_available() and hasattr(torch, "npu") and torch.npu.is_available():
+        logger.info("Redirecting torch.cuda → torch.npu for NPU compatibility (set_random_seed)")
+        torch.cuda = torch.npu
+
+
 @EngineRegistry.register(model_type="omni_model", backend=["megatron"], device=["npu"])
 class OmniMindspeedMegatronBridgeEngine(MindspeedEngineWithLMHead):
     """MindSpeed Megatron-Bridge engine for Qwen3-Omni Thinker on NPU.
@@ -287,4 +298,8 @@ class OmniMindspeedMegatronBridgeEngine(MindspeedEngineWithLMHead):
                 "(new Megatron-Bridge). Use OmniMindSpeedMegatronEngine for "
                 "vanilla_mbridge=True (old mbridge)."
             )
+        # Redirect torch.cuda → torch.npu before super().__init__() to avoid
+        # AssertionError: Torch not compiled with CUDA enabled
+        # when set_random_seed() calls torch.cuda.get_rng_state() on NPU.
+        _patch_torch_cuda_for_npu()
         super().__init__(model_config, engine_config, optimizer_config, checkpoint_config)
