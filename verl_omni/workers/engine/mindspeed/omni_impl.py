@@ -27,11 +27,14 @@ Two engines are provided:
    needed.
 """
 
+import importlib.metadata as _ilm
 import json
 import logging
 import os
 import shutil
+import sys
 import tempfile
+from types import ModuleType
 
 import torch
 
@@ -268,6 +271,10 @@ def _patch_torch_cuda_for_npu():
     break type annotations like ``torch.cuda.ExternalStream``), we patch only
     the functions that are actually called at runtime.
 
+    Also creates a mock ``transformer_engine`` module so that
+    Megatron-Bridge v0.5.0's PEFT/LoRA submodule (``import transformer_engine.pytorch as te``)
+    can be imported on NPU without ``ModuleNotFoundError``.
+
     Returns ``True`` if the patch was applied, ``False`` otherwise.
     """
     if not torch.cuda.is_available() and hasattr(torch, "npu") and torch.npu.is_available():
@@ -279,6 +286,34 @@ def _patch_torch_cuda_for_npu():
         torch.cuda.current_device = torch.npu.current_device
         torch.cuda.device_count = torch.npu.device_count
         torch.cuda.synchronize = torch.npu.synchronize
+
+        # Create mock transformer_engine module for Megatron-Bridge v0.5.0 PEFT imports
+        if "transformer_engine" not in sys.modules:
+            logger.info("Creating mock transformer_engine module for NPU compatibility")
+            _te = ModuleType("transformer_engine")
+            _te.pytorch = ModuleType("transformer_engine.pytorch")
+            sys.modules["transformer_engine"] = _te
+            sys.modules["transformer_engine.pytorch"] = _te.pytorch
+
+        # Patch importlib.metadata.version() and also megatron.core.utils
+        # directly, because megatron.core.utils is imported at module load time
+        # (via the parent class chain) and its local `version` reference is
+        # already captured — patching importlib.metadata.version alone won't
+        # affect it.
+        _orig_version = _ilm.version
+        _patched_version = lambda name, _orig=_orig_version: (
+            "1.7.0.dev0" if name == "transformer-engine" else _orig(name)
+        )
+        _ilm.version = _patched_version
+
+        # Directly patch megatron.core.utils.get_te_version_str() since it
+        # already captured the local `version` reference at import time.
+        try:
+            import megatron.core.utils as _mcore_utils
+            _mcore_utils.get_te_version_str = lambda: "1.7.0.dev0"
+        except (ImportError, AttributeError):
+            pass
+
         return True
     return False
 
