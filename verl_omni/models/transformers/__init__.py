@@ -16,3 +16,11 @@
 # The legacy Qwen3-Omni monkey-patches are no longer needed with the V1 trainer
 # (verl_omni.trainer.main_omni). Please see run_qwen3_omni_thinker_gspo_lora_v1.sh
 # for the V1 migration path.
+
+# Exception: qwen3_5_moe_vision is NOT legacy. Qwen3.5-35B-A3B's vision tower
+# still needs a device fix under FSDP2 CPUOffloadPolicy (ref model in GRPO/GSPO);
+# it is applied explicitly from Qwen35MoeThinkerAdapter.configure_model, not
+# implicitly at import time.
+from .qwen3_5_moe_vision import apply_qwen3_5_vision_device_fix  # noqa: F401
+
+__all__ = ["apply_qwen3_5_vision_device_fix"]
