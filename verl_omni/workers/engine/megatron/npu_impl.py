@@ -62,10 +62,22 @@ def _npu_safe_set_random_seed(seed: int) -> None:
 
 
 def _patch_set_random_seed() -> None:
-    """Replace ``set_random_seed`` in the verl megatron utils module."""
+    """Replace ``set_random_seed`` in the verl megatron utils module.
+
+    IMPORTANT: We must also patch the local reference in
+    ``verl.workers.engine.megatron.transformer_impl``, because that module
+    imports ``set_random_seed`` via ``from .utils import set_random_seed``
+    at module level (line 84), which creates a **local binding** in the
+    ``transformer_impl`` module's namespace.  Patching
+    ``utils.set_random_seed`` alone does NOT propagate to that local binding.
+    """
+    import sys
+
     original: Callable = _megatron_utils.set_random_seed
     if original is _npu_safe_set_random_seed:
         return  # Already patched.
+
+    # 1. Patch the canonical location in the utils module.
     _megatron_utils.set_random_seed = _npu_safe_set_random_seed
     logger.info(
         "Patched verl.workers.engine.megatron.utils.set_random_seed to NPU-safe version "
@@ -73,6 +85,18 @@ def _patch_set_random_seed() -> None:
         getattr(original, "__module__", "?"),
         getattr(original, "__qualname__", "?"),
     )
+
+    # 2. Also patch every module that imported ``set_random_seed`` via
+    #    ``from .utils import set_random_seed``, so their local reference
+    #    points to the NPU-safe version.
+    _target_modules = [
+        "verl.workers.engine.megatron.transformer_impl",
+    ]
+    for mod_name in _target_modules:
+        mod = sys.modules.get(mod_name)
+        if mod is not None and getattr(mod, "set_random_seed", None) is original:
+            mod.set_random_seed = _npu_safe_set_random_seed
+            logger.info("Also patched %s.set_random_seed (local reference)", mod_name)
 
 
 # Apply the patch at import time so it is in effect before any Megatron engine

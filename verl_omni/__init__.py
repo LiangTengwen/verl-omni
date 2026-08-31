@@ -11,6 +11,11 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+# NPU-specific monkey-patch must be applied BEFORE any other engine modules are imported.
+# This ensures verl.workers.engine.megatron.utils.set_random_seed is patched before
+# any code imports it from verl.workers.engine.megatron.transformer_impl.
+import verl_omni.workers.engine.megatron  # noqa: E402, F401
+
 import os
 
 with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "version/version")) as f:
