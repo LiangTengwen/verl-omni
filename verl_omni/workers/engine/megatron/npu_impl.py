@@ -25,14 +25,42 @@ causing an ``AssertionError: Torch not compiled with CUDA enabled``.
 
 This patch replaces the seed function with an NPU-safe version that uses
 ``torch.npu.manual_seed_all(seed)`` instead.
+
+Also injects a stub for ``transformer_engine.pytorch`` (NVIDIA CUDA-only) to
+satisfy ``megatron.bridge``'s unconditional import of diffusion models, which
+ultimately ``import transformer_engine.pytorch as te``.  On NPU this package
+is not available; the stub is safe because we never use LoRA/PEFT code paths.
 """
 
 from __future__ import annotations
 
 import logging
+import sys
+import types
 from typing import Callable
 
 from verl.workers.engine.megatron import utils as _megatron_utils
+
+
+# ---------------------------------------------------------------------------
+# Stub ``transformer_engine.pytorch`` to prevent ``ModuleNotFoundError`` on NPU.
+#
+# ``megatron.bridge/__init__.py`` unconditionally imports its diffusion submodule,
+# which triggers a dependency chain that ends in ``import transformer_engine.pytorch``.
+# This package is NVIDIA CUDA-only and unavailable on Ascend NPU.
+#
+# We inject a stub module before ``megatron.bridge`` is first imported.  Since
+# the NPU training path uses full-parameter training (not LoRA/PEFT), the stub
+# is never accessed at runtime --- it only needs to satisfy the ``import``
+# statement itself.
+# ---------------------------------------------------------------------------
+if "transformer_engine" not in sys.modules:
+    _te_stub = types.ModuleType("transformer_engine")
+    _te_stub.__path__ = []
+    _te_pytorch_stub = types.ModuleType("transformer_engine.pytorch")
+    _te_pytorch_stub.__path__ = []
+    sys.modules["transformer_engine"] = _te_stub
+    sys.modules["transformer_engine.pytorch"] = _te_pytorch_stub
 
 logger = logging.getLogger(__file__)
 logger.setLevel(logging.WARN)
