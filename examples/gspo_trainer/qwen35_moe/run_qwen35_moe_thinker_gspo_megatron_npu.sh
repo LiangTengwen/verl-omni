@@ -231,9 +231,9 @@ python3 -m verl_omni.trainer.main_omni \
     actor_rollout_ref.actor.megatron.optimizer_offload=${ALL_OFFLOAD} \
     actor_rollout_ref.actor.megatron.dtype=${ACTOR_MODEL_DTYPE} \
     actor_rollout_ref.actor.checkpoint.strict=False \
-    +actor_rollout_ref.actor.megatron.override_transformer_config.use_flash_attn=True \
+    # +actor_rollout_ref.actor.megatron.override_transformer_config.use_flash_attn=True \
     +actor_rollout_ref.actor.megatron.override_transformer_config.moe_token_dispatcher_type=alltoall \
-    +actor_rollout_ref.actor.megatron.override_transformer_config.use_naive_l2norm=True \
+    # +actor_rollout_ref.actor.megatron.override_transformer_config.use_naive_l2norm=True \
     \
     actor_rollout_ref.ref.strategy=megatron \
     actor_rollout_ref.ref.megatron.param_offload=${ALL_OFFLOAD} \
