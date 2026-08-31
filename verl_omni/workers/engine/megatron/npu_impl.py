@@ -43,16 +43,26 @@ logger = logging.getLogger(__file__)
 logger.setLevel(logging.WARN)
 
 # ---------------------------------------------------------------------------
-# Pre-remove ``qwen3_asr`` from Transformers config mapping to avoid
-# ``ValueError: 'qwen3_asr' is already used by a Transformers config``
-# when ``megatron.bridge`` tries to register it.
+# Patch ``CONFIG_MAPPING.register`` to handle ``qwen3_asr`` conflicts.
+#
+# ``megatron.bridge/__init__.py`` unconditionally imports all submodules,
+# which eventually triggers ``AutoConfig.register("qwen3_asr", ...)``.
+# Newer Transformers versions already include a ``qwen3_asr`` config type,
+# causing ``ValueError: 'qwen3_asr' is already used by a Transformers config``.
+#
+# We patch the mapping's ``register`` method to always use ``exist_ok=True``,
+# which is safe because Megatron-Bridge's registration is intentional
+# (it overrides the built-in Transformers config with its own).
 # ---------------------------------------------------------------------------
 try:
     from transformers.models.auto.configuration_auto import CONFIG_MAPPING
 
-    _extra = getattr(CONFIG_MAPPING, "_extra_content", None)
-    if _extra is not None:
-        _extra.pop("qwen3_asr", None)
+    _orig_register = CONFIG_MAPPING.register
+
+    def _patched_register(key, value, exist_ok=False):
+        return _orig_register(key, value, exist_ok=True)
+
+    CONFIG_MAPPING.register = _patched_register
 except Exception:
     pass
 
