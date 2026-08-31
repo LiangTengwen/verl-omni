@@ -11,28 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from .fsdp import (  # noqa: F401
-    DiffusersFSDPEngine,
-    DPODiffusersFSDPEngine,
-    NFTDiffusersFSDPEngine,
-    PPODiffusersFSDPEngine,
-)
-from .fsdp.omni_impl import OmniFSDPEngine  # noqa: F401
-
-try:
-    from .veomni import VeOmniDiffusionEngine  # noqa: F401
-except ImportError:
-    VeOmniDiffusionEngine = None
-
-from .megatron import (  # noqa: F401
-    _patch_set_random_seed,
-)
-
-__all__ = [
-    "PPODiffusersFSDPEngine",
-    "DPODiffusersFSDPEngine",
-    "NFTDiffusersFSDPEngine",
-    "DiffusersFSDPEngine",
-    "VeOmniDiffusionEngine",
-    "OmniFSDPEngine",
-]
+# NPU-specific patches for Megatron engine.
+# Applies monkey-patch to set_random_seed at import time.
+from .npu_impl import _patch_set_random_seed  # noqa: F401
