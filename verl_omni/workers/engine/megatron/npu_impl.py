@@ -25,6 +25,11 @@ causing an ``AssertionError: Torch not compiled with CUDA enabled``.
 
 This patch replaces the seed function with an NPU-safe version that uses
 ``torch.npu.manual_seed_all(seed)`` instead.
+
+Also resolves ``AutoConfig.register("qwen3_asr", ...)`` conflicts:
+``megatron.bridge`` registers a ``qwen3_asr`` model type, but newer versions
+of Transformers already include it.  We remove the conflicting key from the
+config mapping before ``megatron.bridge`` is imported.
 """
 
 from __future__ import annotations
@@ -36,6 +41,20 @@ from verl.workers.engine.megatron import utils as _megatron_utils
 
 logger = logging.getLogger(__file__)
 logger.setLevel(logging.WARN)
+
+# ---------------------------------------------------------------------------
+# Pre-remove ``qwen3_asr`` from Transformers config mapping to avoid
+# ``ValueError: 'qwen3_asr' is already used by a Transformers config``
+# when ``megatron.bridge`` tries to register it.
+# ---------------------------------------------------------------------------
+try:
+    from transformers.models.auto.configuration_auto import CONFIG_MAPPING
+
+    _extra = getattr(CONFIG_MAPPING, "_extra_content", None)
+    if _extra is not None:
+        _extra.pop("qwen3_asr", None)
+except Exception:
+    pass
 
 
 def _npu_safe_set_random_seed(seed: int) -> None:
