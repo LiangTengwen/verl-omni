@@ -218,6 +218,8 @@ class OmniDirectPreferenceRayTrainer:
             with open_dict(self.config):
                 if OmegaConf.select(self.config, "actor_rollout_ref.actor.optim"):
                     self.config.actor_rollout_ref.actor.optim.total_training_steps = total_training_steps
+                if OmegaConf.select(self.config, "actor_rollout_ref.ref.optim"):
+                    self.config.actor_rollout_ref.ref.optim.total_training_steps = total_training_steps
         except Exception as exc:
             print(f"Warning: Could not set total_training_steps in config. Structure missing? Error: {exc}")
 
