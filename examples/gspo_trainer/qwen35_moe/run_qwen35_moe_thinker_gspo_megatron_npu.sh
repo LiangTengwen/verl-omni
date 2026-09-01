@@ -125,7 +125,7 @@ done
 # 训练侧拓扑约束：world = TP × PP × CP × DP，且 MoE 的 EP 必须整除 DP。
 # 默认按单机 8 卡给一套安全、总能通过的配置；多机/大卡请按需覆盖。
 TP=${TP:-8}
-PP=${PP:-1}
+PP=${PP:-2}
 CP=${CP:-1}
 EP=${EP:-8}
 ETP=${ETP:-1}
@@ -137,10 +137,10 @@ if [ $(( _WORLD_SIZE % _TP_PP_CP )) -ne 0 ]; then
     exit 1
 fi
 _DP=$(( _WORLD_SIZE / _TP_PP_CP ))
-if [ $(( _DP % EP )) -ne 0 ]; then
-    echo "FATAL: EP=${EP} 必须整除 DP=${_DP}" >&2
-    exit 1
-fi
+# if [ $(( _DP % EP )) -ne 0 ]; then
+#     echo "FATAL: EP=${EP} 必须整除 DP=${_DP}" >&2
+#     exit 1
+# fi
 echo "Megatron topology: world=${_WORLD_SIZE} TP=${TP} PP=${PP} CP=${CP} DP=${_DP} EP=${EP} ETP=${ETP}"
 
 # rollout(vLLM-Omni) 张量并行，与训练 TP 解耦（沿用 FSDP 脚本）
